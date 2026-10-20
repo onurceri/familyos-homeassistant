@@ -4,9 +4,9 @@ A Home Assistant integration for [FamilyOS](https://github.com/onurceri/family-o
 It brings the family's calendar, shopping lists, tasks and chores into Home Assistant, and lets Home Assistant add to
 them. It talks to FamilyOS with an app key through FamilyOS's public API, so it only does what the key's role allows.
 
-- Needs FamilyOS **0.3.1 or newer** (0.3.0 could lose a repeating event's skipped dates when Home Assistant edits it) and Home Assistant **2026.10 or newer**. The *Waiting for approval* sensor and the note services `edit_note` and `remove_note` need a FamilyOS newer than 0.3.2 (the first with the API's list of suggestions); on an older one they stay unavailable or are refused.
+- Needs FamilyOS **0.3.1 or newer** (0.3.0 could lose a repeating event's skipped dates when Home Assistant edits it) and Home Assistant **2026.10 or newer**. FamilyOS **0.4 or newer** is needed for: the *Waiting for approval* sensor and the note services `edit_note` and `remove_note` (0.3.x has no API list of suggestions, so the sensor stays unavailable and the services are refused), the sensor following the change log instead of being asked at every poll, a moved date of a repeating event keeping its original start, and an app editing the notes it posted itself.
 - Polls FamilyOS (local polling, every 60 seconds by default). Asking is cheap: FamilyOS says what changed, and the
-  integration reads only that (plus the waiting suggestions, which the change log does not report to an app, as a conditional read).
+  integration reads only that (on FamilyOS 0.3.x also the waiting suggestions at every poll, as a conditional read; from 0.4 the change log reports them too).
 
 ## Install
 
@@ -62,7 +62,7 @@ FamilyOS (**Settings, Features**), or when the app's role may not use it.
   is due), `done_by` (the id of the member who did it).
 
 - `familyos.edit_note`: changes a note on the board. Fields: `note` (its id, which `post_note` answers with), and any of
-  `text`, `paper`, `ends_on`. Only the note's author, or someone who manages the board, may; an app is nobody, so use *Act for* (below) and notes it posts are that person's to change.
+  `text`, `paper`, `ends_on`. Only the note's author, or someone who manages the board, may. On FamilyOS 0.4 or newer an app owns the notes it posts and can change them itself; on 0.3.x an app is nobody, so use *Act for* (below) and the notes it posts are that person's to change.
 - `familyos.remove_note`: takes a note off the board. Fields: `note`. Same rule.
 
 All can say which FamilyOS to use with `config_entry_id` when you have more than one, and all return

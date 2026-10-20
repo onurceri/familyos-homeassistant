@@ -47,6 +47,8 @@ ALL_OPERATIONS = [
     "board.listNotes",
     "board.createNote",
 ]
+# What a FamilyOS 0.4 key may do: it lists reading the suggestions too.
+OPERATIONS_04 = [*ALL_OPERATIONS, "core.listDrafts"]
 
 
 def discovery(*, off: tuple[str, ...] = (), operations: Iterable[str] = ALL_OPERATIONS) -> Discovery:
@@ -80,6 +82,7 @@ def occurrence(
     recurrence_id: str | None = None,
     series_id: str | None = None,
     recurrence_key: str | None = None,
+    series_recurrence_id: str | None = None,
     **extra: Any,
 ) -> Occurrence:
     return Occurrence.from_dict(
@@ -99,6 +102,7 @@ def occurrence(
             "tags": [],
             "seriesId": series_id,
             "recurrenceKey": recurrence_key,
+            "seriesRecurrenceId": series_recurrence_id,
         }
     )
 

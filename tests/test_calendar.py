@@ -309,7 +309,7 @@ MOVED_KEY = "2026-10-21T17:00:00+02:00"
 MOVED_MS = "1792594800000"
 
 
-def _moved_date(client: MagicMock) -> None:
+def _moved_date(client: MagicMock, *, server_04: bool = False) -> None:
     """Swimming on the 21st was moved to 18:00 and is an event of its own, cal_event_9."""
     client.iter_occurrences.items.append(
         occurrence(
@@ -319,16 +319,23 @@ def _moved_date(client: MagicMock) -> None:
             event_id="cal_event_9",
             # FamilyOS names a moved date by its new moment; the one it was due is the key.
             recurrence_id="2026-10-21T18:00:00+02:00",
-            recurrence_key=MOVED_MS,
+            # FamilyOS 0.4 gives the original start itself; older servers only the key.
+            recurrence_key=None if server_04 else MOVED_MS,
+            series_recurrence_id=MOVED_KEY if server_04 else None,
             series_id="cal_event_2",
         )
     )
 
 
+@pytest.mark.parametrize("server_04", [False, True], ids=["0.3", "0.4"])
 async def test_a_moved_date_shows_as_an_instance_of_its_series(
-    hass: HomeAssistant, hass_client: ClientSessionGenerator, entry: MockConfigEntry, client: MagicMock
+    hass: HomeAssistant,
+    hass_client: ClientSessionGenerator,
+    entry: MockConfigEntry,
+    client: MagicMock,
+    server_04: bool,
 ) -> None:
-    _moved_date(client)
+    _moved_date(client, server_04=server_04)
     client.get_event = AsyncMock(return_value=event(recurrence={"freq": "daily", "interval": 1}))
     found = await _events(hass_client, "2026-10-21T00:00:00Z", "2026-10-22T00:00:00Z")
     moved = next(e for e in found if e["start"] == {"dateTime": "2026-10-21T18:00:00+02:00"})

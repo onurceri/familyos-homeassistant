@@ -19,7 +19,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import UpdateFailed
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
-from .common import ALL_OPERATIONS, Stream, changes, discovery, draft_summary, make_entry
+from .common import ALL_OPERATIONS, OPERATIONS_04, Stream, changes, discovery, draft_summary, make_entry
 
 READS = (
     "iter_occurrences",
@@ -248,3 +248,40 @@ async def test_an_older_family_os_has_no_list_of_suggestions(
     await _poll(hass, freezer, entry)
     assert hass.states.get("sensor.familyos_waiting_for_approval").state == "unavailable"
     assert hass.states.get("todo.familyos_tasks").state == "1"
+
+
+async def test_family_os_04_tells_of_suggestions_in_the_change_log(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, entry: MockConfigEntry, client: MagicMock
+) -> None:
+    client.discover = AsyncMock(return_value=discovery(operations=OPERATIONS_04))
+    await _poll(hass, freezer, entry)
+    reads = client.iter_drafts.calls
+    assert hass.states.get("sensor.familyos_waiting_for_approval").state == "0"
+
+    # Nothing changed: the suggestions are not asked for.
+    await _poll(hass, freezer, entry)
+    await _poll(hass, freezer, entry)
+    assert client.iter_drafts.calls == reads
+
+    client.iter_drafts.items[:] = [draft_summary()]
+    client.changes = AsyncMock(return_value=changes(("core", "draft_1", "draft"), cursor=3))
+    await _poll(hass, freezer, entry)
+    assert client.iter_drafts.calls == reads + 1
+    assert hass.states.get("sensor.familyos_waiting_for_approval").state == "1"
+    # The change moved only the suggestions.
+    assert _calls(client)["iter_chores"] == 1
+
+    client.changes = AsyncMock(return_value=changes(("core", "member_1", "member"), cursor=4))
+    await _poll(hass, freezer, entry)
+    assert client.iter_drafts.calls == reads + 1
+
+
+async def test_a_new_day_reads_the_suggestions_again_on_04(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, entry: MockConfigEntry, client: MagicMock
+) -> None:
+    client.discover = AsyncMock(return_value=discovery(operations=OPERATIONS_04))
+    await _poll(hass, freezer, entry)
+    reads = client.iter_drafts.calls
+    freezer.tick(dt.timedelta(days=1))
+    await _poll(hass, freezer, entry)
+    assert client.iter_drafts.calls == reads + 1

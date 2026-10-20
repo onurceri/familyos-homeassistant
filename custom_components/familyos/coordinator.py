@@ -58,6 +58,9 @@ _FEATURE_OPERATIONS = {
     FEATURE_CHORES: "chores.listChores",
     FEATURE_BOARD: "board.createNote",
 }
+_LIST_DRAFTS = "core.listDrafts"
+# Stands in the touched set for a change of a suggestion (whichever extension it belongs to).
+_DRAFT_CHANGE = "draft"
 # Which part of FamilyOS' change log a feature is kept up to date from.
 _FEATURE_EXTENSIONS = {
     FEATURE_CALENDAR: "calendar",
@@ -124,10 +127,11 @@ class FamilyOSCoordinator(DataUpdateCoordinator[FamilyData]):
             for feature, operation in _FEATURE_OPERATIONS.items()
             if discovery.can(operation) and discovery.enabled(operation.split(".")[0])
         )
-        # FamilyOS does not list reading the suggestions among a key's operations, so it is tried, and not tried
-        # again until what the key may do changes.
+        # FamilyOS 0.4 lists reading the suggestions among a key's operations. Older ones do not, so there it is
+        # tried, and not tried again until what the key may do changes.
         operations = frozenset(operation.name for operation in discovery.operations)
-        if self._drafts_refused != operations:
+        drafts_listed = discovery.can(_LIST_DRAFTS)
+        if drafts_listed or self._drafts_refused != operations:
             features |= {FEATURE_DRAFTS}
         previous = self.data
 
@@ -142,12 +146,17 @@ class FamilyOSCoordinator(DataUpdateCoordinator[FamilyData]):
                 LOGGER.debug("The change log no longer reaches back far enough; reading everything again")
                 self._rrules.clear()
                 self._cursor = (await self.client.changes()).cursor
-                touched = {"calendar", "lists", "chores"}
+                touched = {"calendar", "lists", "chores", _DRAFT_CHANGE}
             stale = {feature for feature in features if _FEATURE_EXTENSIONS.get(feature) in touched}
-            # FamilyOS' change log does not tell of suggestions to an app, and a suggestion also ends by itself
-            # (a day passes, its subject is gone), so they are asked for at every poll. The answer is an ETag
-            # read: a 304 when nothing moved.
-            stale |= {FEATURE_DRAFTS} & features
+            if drafts_listed:
+                # FamilyOS 0.4 tells of a suggestion that comes, changes or goes in its change log. One also ends
+                # by itself when a day passes, so the date moving on reads them again too.
+                if _DRAFT_CHANGE in touched or today != previous.today:
+                    stale |= {FEATURE_DRAFTS}
+            else:
+                # Older servers do not tell, so the suggestions are asked for at every poll. The answer is an
+                # ETag read: a 304 when nothing moved.
+                stale |= {FEATURE_DRAFTS} & features
             if today != previous.today:
                 # What is due today, what is overdue and what the calendar shows move with the date.
                 stale |= {FEATURE_CALENDAR, FEATURE_CHORES} & features
@@ -213,6 +222,8 @@ class FamilyOSCoordinator(DataUpdateCoordinator[FamilyData]):
             answer = await self.client.changes(cursor)
             for change in answer.changes:
                 touched.add(change.extension)
+                if change.entity == "draft":
+                    touched.add(_DRAFT_CHANGE)
                 if change.extension == "calendar":
                     self._rrules.pop(change.id, None)
             cursor = self._cursor = answer.cursor

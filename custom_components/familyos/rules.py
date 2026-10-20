@@ -72,8 +72,14 @@ def instance_id(occurrence: Occurrence, zone: ZoneInfo) -> str:
     """The name of a date within its series: the moment (or day) it was first due.
 
     A date moved out of a series reports its new moment as ``recurrence_id``; the one it was due is its
-    ``recurrence_key`` (epoch milliseconds, or a day for an all-day event).
+    ``series_recurrence_id`` (FamilyOS 0.4 and newer). Older servers only give ``recurrence_key`` (epoch
+    milliseconds, or a day for an all-day event), which is read instead.
     """
+    original = occurrence.series_recurrence_id
+    if occurrence.series_id and original is not None:
+        if isinstance(original, dt.datetime):
+            return original.astimezone(zone).isoformat()
+        return original.isoformat()
     key = occurrence.recurrence_key
     if occurrence.series_id and key:
         if key.isdecimal():
