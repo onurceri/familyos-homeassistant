@@ -1,0 +1,5 @@
+# Tests need Home Assistant's own test kit (it pins homeassistant), the linters, and the client library.
+pytest-homeassistant-custom-component==0.13.373
+ruff==0.17.1
+mypy==2.4.0
+familyos-client==0.1.0
