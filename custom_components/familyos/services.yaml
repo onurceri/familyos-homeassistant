@@ -1,0 +1,38 @@
+post_note:
+  fields:
+    text:
+      required: true
+      example: "Back at six"
+      selector:
+        text:
+          multiline: true
+    pinned:
+      required: false
+      selector:
+        boolean:
+    config_entry_id:
+      required: false
+      selector:
+        config_entry:
+          integration: familyos
+complete_chore:
+  fields:
+    chore:
+      required: true
+      example: "Take out the bins"
+      selector:
+        text:
+    due_date:
+      required: false
+      selector:
+        date:
+    done_by:
+      required: false
+      example: "member_0192..."
+      selector:
+        text:
+    config_entry_id:
+      required: false
+      selector:
+        config_entry:
+          integration: familyos

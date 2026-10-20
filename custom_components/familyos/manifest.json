@@ -1,0 +1,13 @@
+{
+  "domain": "familyos",
+  "name": "FamilyOS",
+  "codeowners": ["@onurceri"],
+  "config_flow": true,
+  "documentation": "https://github.com/onurceri/familyos-homeassistant",
+  "integration_type": "service",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/onurceri/familyos-homeassistant/issues",
+  "loggers": ["familyos"],
+  "requirements": ["familyos-client==0.1.0"],
+  "version": "0.1.0"
+}

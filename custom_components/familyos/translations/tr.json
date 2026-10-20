@@ -1,0 +1,170 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "FamilyOS'a bağlan",
+        "description": "FamilyOS'ta (yönetici olarak) Ayarlar, Sen, Bağlı uygulamalar bölümünü açıp bir uygulama ekleyin. Ona bir rol verin, değişikliklerinin hemen mi yoksa onay beklenerek mi yapılacağını seçin ve anahtarı kopyalayın. Anahtar yalnızca bir kez gösterilir.",
+        "data": {
+          "url": "URL",
+          "api_key": "API anahtarı"
+        },
+        "data_description": {
+          "url": "FamilyOS adresiniz, örneğin http://192.168.1.20:3000 veya https://aile.example.com.",
+          "api_key": "FamilyOS'tan aldığınız uygulama anahtarı. famos_ ile başlar."
+        }
+      },
+      "reauth_confirm": {
+        "title": "FamilyOS'a yeniden giriş yapın",
+        "description": "FamilyOS, {url} için anahtarı artık kabul etmiyor. FamilyOS'ta uygulamaya yeni bir anahtar ekleyin (veya yeni bir uygulama oluşturun) ve buraya girin.",
+        "data": {
+          "api_key": "API anahtarı"
+        },
+        "data_description": {
+          "api_key": "FamilyOS'tan aldığınız yeni uygulama anahtarı."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Bağlanılamadı",
+      "invalid_auth": "Kimlik doğrulaması geçersiz",
+      "unsupported": "Bu adres yanıt veriyor ama herkese açık API'si olan bir FamilyOS değil (0.3 veya daha yeni bir sürüm gerekir).",
+      "unknown": "Beklenmeyen hata"
+    },
+    "abort": {
+      "already_configured": "Cihaz zaten yapılandırılmış",
+      "reauth_successful": "Yeniden kimlik doğrulama başarılı"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "FamilyOS seçenekleri",
+        "description": "Adına davran: uygulamanın adına davranabileceği bir aile üyesinin kimliği (member_ ile başlar). Ayarlarsanız her değişiklik o kişi olarak yapılır; hem onun hem de uygulamanın rolünün izin verdiği geçerli olur, gözetimli bir kişinin değişiklikleri onay bekler. Boş bırakırsanız uygulamanın kendi rolü geçerlidir.",
+        "data": {
+          "scan_interval": "FamilyOS'a ne sıklıkla sorulsun (saniye)",
+          "act_for": "Adına davran (üye kimliği)"
+        },
+        "data_description": {
+          "scan_interval": "FamilyOS'ta yapılan değişiklikler bu süre içinde Home Assistant'ta görünür. Sormak ucuzdur: FamilyOS yalnızca değişenleri yanıtlar.",
+          "act_for": "Üye kimliği, FamilyOS'ta uygulamanın \"Adına davranabileceği kişiler\" listesinin düzenlendiği yerde görünür."
+        }
+      }
+    },
+    "error": {
+      "act_for_refused": "FamilyOS bu kişiyi reddetti. Uygulamanın onun adına davranmasına izin verilmiş olmalı (Ayarlar, Sen, Bağlı uygulamalar).",
+      "cannot_connect": "Bağlanılamadı",
+      "invalid_auth": "Kimlik doğrulaması geçersiz"
+    }
+  },
+  "entity": {
+    "calendar": {
+      "family": {
+        "name": "Takvim"
+      }
+    },
+    "todo": {
+      "tasks": {
+        "name": "Görevler"
+      },
+      "shopping": {
+        "name": "Alışveriş: {list}"
+      }
+    },
+    "sensor": {
+      "chores_due_today": {
+        "name": "Bugün yapılacak işler",
+        "unit_of_measurement": "iş"
+      },
+      "chores_overdue": {
+        "name": "Geciken işler",
+        "unit_of_measurement": "iş"
+      }
+    }
+  },
+  "exceptions": {
+    "waiting_for_approval": {
+      "message": "FamilyOS'ta onay bekliyor: {subject}"
+    },
+    "auth_failed": {
+      "message": "FamilyOS artık anahtarı kabul etmiyor. Entegrasyon ayarlarında yeni bir anahtar girin."
+    },
+    "forbidden": {
+      "message": "FamilyOS buna izin vermiyor: {message}"
+    },
+    "request_failed": {
+      "message": "FamilyOS bunu yapamadı: {message}"
+    },
+    "unreachable": {
+      "message": "FamilyOS'a ulaşılamıyor: {message}"
+    },
+    "no_such_chore": {
+      "message": "\"{chore}\" ile eşleşen bir iş yok."
+    },
+    "chore_not_due": {
+      "message": "\"{chore}\" için tamamlanacak bir tarih yok."
+    },
+    "chore_needs_person": {
+      "message": "Bir uygulama kimse değildir; işi kimin yaptığını söyleyin (done_by) veya entegrasyon seçeneklerinde \"Adına davran\" ayarlayın."
+    },
+    "no_such_entry": {
+      "message": "Kullanılacak bir FamilyOS bağlantısı yok. Önce entegrasyonu ekleyin."
+    },
+    "several_entries": {
+      "message": "Birden fazla FamilyOS bağlı. config_entry_id ile hangisi olduğunu seçin."
+    },
+    "repeat_unsupported": {
+      "message": "Bu tekrar kuralı burada kullanılamaz. FamilyOS günlük, haftalık (seçilen günlerde) veya aylık tekrarlar; aralık ve bitiş tarihi verilebilir."
+    },
+    "repeat_change_unsupported": {
+      "message": "Bir etkinliğin nasıl tekrarlandığı Home Assistant'tan değiştirilemez. FamilyOS'ta değiştirin."
+    },
+    "following_unsupported": {
+      "message": "\"Bu ve sonrakiler\" Home Assistant'tan değiştirilemez veya silinemez. Yalnızca bu etkinliği ya da tüm etkinlikleri seçin."
+    },
+    "feature_unavailable": {
+      "message": "FamilyOS bunu uygulamaya sunmuyor: ya kapalı ya da uygulamanın rolü kullanamıyor."
+    }
+  },
+  "services": {
+    "post_note": {
+      "name": "Panoya not bırak",
+      "description": "FamilyOS'ta aile panosuna bir not koyar.",
+      "fields": {
+        "text": {
+          "name": "Metin",
+          "description": "Notta yazanlar."
+        },
+        "pinned": {
+          "name": "Sabitle",
+          "description": "Notu panonun en üstünde tut."
+        },
+        "config_entry_id": {
+          "name": "FamilyOS",
+          "description": "Hangi FamilyOS kullanılsın. Yalnızca birden fazla bağlıysa gerekir."
+        }
+      }
+    },
+    "complete_chore": {
+      "name": "İşi tamamla",
+      "description": "FamilyOS'ta bir işi yapıldı olarak işaretler.",
+      "fields": {
+        "chore": {
+          "name": "İş",
+          "description": "İşin başlığı (veya kimliği)."
+        },
+        "due_date": {
+          "name": "Tarih",
+          "description": "Tamamladığınız tarih. Boş bırakırsanız şu an beklediği tarih kullanılır."
+        },
+        "done_by": {
+          "name": "Yapan",
+          "description": "İşi yapan üyenin kimliği. Bir uygulama kimse değildir, önemliyse kimin yaptığını söyleyin."
+        },
+        "config_entry_id": {
+          "name": "FamilyOS",
+          "description": "Hangi FamilyOS kullanılsın. Yalnızca birden fazla bağlıysa gerekir."
+        }
+      }
+    }
+  }
+}

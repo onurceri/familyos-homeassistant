@@ -1,0 +1,170 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect FamilyOS",
+        "description": "In FamilyOS, open Settings, You, Connected apps (as an admin) and add an app. Give it a role and choose whether its changes happen at once or wait for approval, then copy the key. It is shown once.",
+        "data": {
+          "url": "[%key:common::config_flow::data::url%]",
+          "api_key": "[%key:common::config_flow::data::api_key%]"
+        },
+        "data_description": {
+          "url": "The address of your FamilyOS, for example http://192.168.1.20:3000 or https://family.example.com.",
+          "api_key": "The app key from FamilyOS. It starts with famos_."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Sign in to FamilyOS again",
+        "description": "FamilyOS no longer accepts the key for {url}. Add a new key to the app in FamilyOS (or a new app) and enter it here.",
+        "data": {
+          "api_key": "[%key:common::config_flow::data::api_key%]"
+        },
+        "data_description": {
+          "api_key": "The new app key from FamilyOS."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
+      "invalid_auth": "[%key:common::config_flow::error::invalid_auth%]",
+      "unsupported": "This address answers, but it is not a FamilyOS that has the public API (version 0.3 or newer is needed).",
+      "unknown": "[%key:common::config_flow::error::unknown%]"
+    },
+    "abort": {
+      "already_configured": "[%key:common::config_flow::abort::already_configured_device%]",
+      "reauth_successful": "[%key:common::config_flow::abort::reauth_successful%]"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "FamilyOS options",
+        "description": "Act for: the id of a family member (it starts with member_) that this app may act for. When you set it, every change is made as that person, and what they and the app's role both allow applies; a supervised person's changes wait for approval. Leave it empty and the app's own role applies.",
+        "data": {
+          "scan_interval": "How often to ask FamilyOS (seconds)",
+          "act_for": "Act for (member id)"
+        },
+        "data_description": {
+          "scan_interval": "Changes made in FamilyOS show in Home Assistant within this time. Asking is cheap: FamilyOS only answers with what changed.",
+          "act_for": "The member id is shown in FamilyOS where the app's \"May act for\" list is edited."
+        }
+      }
+    },
+    "error": {
+      "act_for_refused": "FamilyOS refused this person. The app must be allowed to act for them (Settings, You, Connected apps).",
+      "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
+      "invalid_auth": "[%key:common::config_flow::error::invalid_auth%]"
+    }
+  },
+  "entity": {
+    "calendar": {
+      "family": {
+        "name": "Calendar"
+      }
+    },
+    "todo": {
+      "tasks": {
+        "name": "Tasks"
+      },
+      "shopping": {
+        "name": "Shopping: {list}"
+      }
+    },
+    "sensor": {
+      "chores_due_today": {
+        "name": "Chores due today",
+        "unit_of_measurement": "chores"
+      },
+      "chores_overdue": {
+        "name": "Chores overdue",
+        "unit_of_measurement": "chores"
+      }
+    }
+  },
+  "exceptions": {
+    "waiting_for_approval": {
+      "message": "Waiting for approval in FamilyOS: {subject}"
+    },
+    "auth_failed": {
+      "message": "FamilyOS no longer accepts the key. Enter a new one in the integration settings."
+    },
+    "forbidden": {
+      "message": "FamilyOS does not allow this: {message}"
+    },
+    "request_failed": {
+      "message": "FamilyOS could not do this: {message}"
+    },
+    "unreachable": {
+      "message": "FamilyOS cannot be reached: {message}"
+    },
+    "no_such_chore": {
+      "message": "No chore matches \"{chore}\"."
+    },
+    "chore_not_due": {
+      "message": "\"{chore}\" has no due date to complete."
+    },
+    "chore_needs_person": {
+      "message": "An app is nobody, so say who did the chore (done_by), or set \"Act for\" in the integration options."
+    },
+    "no_such_entry": {
+      "message": "There is no FamilyOS connection to use. Add the integration first."
+    },
+    "several_entries": {
+      "message": "More than one FamilyOS is connected. Choose which one with config_entry_id."
+    },
+    "repeat_unsupported": {
+      "message": "This repeat rule cannot be used here. FamilyOS repeats daily, weekly (on chosen days) or monthly, with an interval and an end date."
+    },
+    "repeat_change_unsupported": {
+      "message": "Changing how an event repeats is not supported from Home Assistant. Change it in FamilyOS."
+    },
+    "following_unsupported": {
+      "message": "Changing or deleting \"this and following\" is not supported from Home Assistant. Choose this event only, or all events."
+    },
+    "feature_unavailable": {
+      "message": "FamilyOS does not offer this to the app: it is switched off or the app's role may not use it."
+    }
+  },
+  "services": {
+    "post_note": {
+      "name": "Post a note on the board",
+      "description": "Puts a note on the family board in FamilyOS.",
+      "fields": {
+        "text": {
+          "name": "Text",
+          "description": "What the note says."
+        },
+        "pinned": {
+          "name": "Pinned",
+          "description": "Keep the note at the top of the board."
+        },
+        "config_entry_id": {
+          "name": "FamilyOS",
+          "description": "Which FamilyOS to use. Needed only when more than one is connected."
+        }
+      }
+    },
+    "complete_chore": {
+      "name": "Complete a chore",
+      "description": "Marks a chore as done in FamilyOS.",
+      "fields": {
+        "chore": {
+          "name": "Chore",
+          "description": "The title of the chore (or its id)."
+        },
+        "due_date": {
+          "name": "Due date",
+          "description": "The date you are completing. Leave empty for the date it is due now."
+        },
+        "done_by": {
+          "name": "Done by",
+          "description": "The id of the member who did it. An app is nobody, so say who when it matters."
+        },
+        "config_entry_id": {
+          "name": "FamilyOS",
+          "description": "Which FamilyOS to use. Needed only when more than one is connected."
+        }
+      }
+    }
+  }
+}
