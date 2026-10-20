@@ -15,6 +15,45 @@ post_note:
       selector:
         config_entry:
           integration: familyos
+edit_note:
+  fields:
+    note:
+      required: true
+      example: "board_note_0192..."
+      selector:
+        text:
+    text:
+      required: false
+      example: "Back at seven"
+      selector:
+        text:
+          multiline: true
+    paper:
+      required: false
+      example: "note-2"
+      selector:
+        text:
+    ends_on:
+      required: false
+      selector:
+        date:
+    config_entry_id:
+      required: false
+      selector:
+        config_entry:
+          integration: familyos
+remove_note:
+  fields:
+    note:
+      required: true
+      example: "board_note_0192..."
+      selector:
+        text:
+    config_entry_id:
+      required: false
+      selector:
+        config_entry:
+          integration: familyos
 complete_chore:
   fields:
     chore:

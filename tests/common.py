@@ -13,6 +13,7 @@ from familyos import (
     ChoreCompleted,
     Discovery,
     Drafted,
+    DraftSummary,
     Event,
     FamilyOS,
     Occurrence,
@@ -77,6 +78,8 @@ def occurrence(
     recurring: bool = False,
     all_day: bool = False,
     recurrence_id: str | None = None,
+    series_id: str | None = None,
+    recurrence_key: str | None = None,
     **extra: Any,
 ) -> Occurrence:
     return Occurrence.from_dict(
@@ -94,6 +97,8 @@ def occurrence(
             "source": None,
             "editable": True,
             "tags": [],
+            "seriesId": series_id,
+            "recurrenceKey": recurrence_key,
         }
     )
 
@@ -204,6 +209,23 @@ def note(text: str = "Back at six") -> BoardNote:
     )
 
 
+def draft_summary(
+    draft_id: str = "draft_1", title: str = "Add a note", subject: str | None = "Back at six"
+) -> DraftSummary:
+    return DraftSummary.from_dict(
+        {
+            "id": draft_id,
+            "status": "waiting",
+            "extension": "board",
+            "title": title,
+            "subject": subject,
+            "proposedAt": "2026-10-20T09:00:00+02:00",
+            "proposedBy": "Home Assistant",
+            "canDecide": False,
+        }
+    )
+
+
 def applied(result: Any) -> Applied[Any]:
     return Applied(result=result, time_zone=ZONE)
 
@@ -212,7 +234,7 @@ def drafted(draft_id: str = "draft_1") -> Drafted:
     return Drafted(draft_id=draft_id, time_zone=ZONE)
 
 
-def changes(*items: tuple[str, str], cursor: int = 1, more: bool = False) -> Changes:
+def changes(*items: tuple[str, ...], cursor: int = 1, more: bool = False) -> Changes:
     return Changes.from_dict(
         {
             "changes": [
@@ -220,11 +242,11 @@ def changes(*items: tuple[str, str], cursor: int = 1, more: bool = False) -> Cha
                     "seq": index,
                     "at": "2026-10-20T10:00:00+02:00",
                     "extension": extension,
-                    "entity": "x",
+                    "entity": entity[0] if entity else "x",
                     "id": entity_id,
                     "op": "upsert",
                 }
-                for index, (extension, entity_id) in enumerate(items, 1)
+                for index, (extension, entity_id, *entity) in enumerate(items, 1)
             ],
             "cursor": cursor,
             "more": more,
@@ -276,6 +298,7 @@ def fake_client() -> MagicMock:
             task("task_2", "Water the plants", done=True),
         ]
     )
+    client.iter_drafts = Stream([])
     client.iter_chores = Stream(
         [
             chore("chore_1", "Take out the bins"),
@@ -299,6 +322,8 @@ def fake_client() -> MagicMock:
         "reopen_task": task(),
         "delete_task": MagicMock(),
         "create_note": note(),
+        "patch_note": note("Back at seven"),
+        "delete_note": MagicMock(),
     }.items():
         setattr(client, name, AsyncMock(return_value=applied(result)))
     client.complete_chore = AsyncMock(

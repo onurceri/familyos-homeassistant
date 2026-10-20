@@ -78,6 +78,10 @@
       "chores_overdue": {
         "name": "Geciken işler",
         "unit_of_measurement": "iş"
+      },
+      "waiting_for_approval": {
+        "name": "Onay bekleyen",
+        "unit_of_measurement": "öneri"
       }
     }
   },
@@ -123,6 +127,9 @@
     },
     "feature_unavailable": {
       "message": "FamilyOS bunu uygulamaya sunmuyor: ya kapalı ya da uygulamanın rolü kullanamıyor."
+    },
+    "nothing_to_change": {
+      "message": "Neyin değişeceğini söyleyin: text, paper veya ends_on."
     }
   },
   "services": {
@@ -159,6 +166,46 @@
         "done_by": {
           "name": "Yapan",
           "description": "İşi yapan üyenin kimliği. Bir uygulama kimse değildir, önemliyse kimin yaptığını söyleyin."
+        },
+        "config_entry_id": {
+          "name": "FamilyOS",
+          "description": "Hangi FamilyOS kullanılsın. Yalnızca birden fazla bağlıysa gerekir."
+        }
+      }
+    },
+    "edit_note": {
+      "name": "Panodaki bir notu değiştir",
+      "description": "FamilyOS'ta aile panosundaki bir notu değiştirir. Yalnızca notu yazan ya da panoyu yöneten kişi yapabilir.",
+      "fields": {
+        "note": {
+          "name": "Not",
+          "description": "Notun kimliği. Not bırakıldığında yanıtta gelir."
+        },
+        "text": {
+          "name": "Metin",
+          "description": "Notta yazması gerekenler."
+        },
+        "paper": {
+          "name": "Kâğıt",
+          "description": "Notun yazıldığı kâğıt."
+        },
+        "ends_on": {
+          "name": "Bitiş günü",
+          "description": "Notun panoda kalacağı son gün."
+        },
+        "config_entry_id": {
+          "name": "FamilyOS",
+          "description": "Hangi FamilyOS kullanılsın. Yalnızca birden fazla bağlıysa gerekir."
+        }
+      }
+    },
+    "remove_note": {
+      "name": "Panodan bir not kaldır",
+      "description": "FamilyOS'ta aile panosundan bir notu kaldırır. Yalnızca notu yazan ya da panoyu yöneten kişi yapabilir.",
+      "fields": {
+        "note": {
+          "name": "Not",
+          "description": "Notun kimliği. Not bırakıldığında yanıtta gelir."
         },
         "config_entry_id": {
           "name": "FamilyOS",

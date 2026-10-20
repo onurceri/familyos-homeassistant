@@ -21,5 +21,3 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
-          # The brand images are not made yet; remove this line when custom_components/familyos/brand exists.
-          ignore: brands

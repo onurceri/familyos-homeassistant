@@ -14,9 +14,11 @@ from familyos import (
     CursorExpired,
     Discovery,
     Drafted,
+    DraftSummary,
     FamilyOS,
     FamilyOSError,
     ForbiddenError,
+    NotFoundError,
     Occurrence,
     RateLimited,
     ShoppingItem,
@@ -39,11 +41,12 @@ from .const import (
     FEATURE_BOARD,
     FEATURE_CALENDAR,
     FEATURE_CHORES,
+    FEATURE_DRAFTS,
     FEATURE_SHOPPING,
     FEATURE_TASKS,
     LOGGER,
 )
-from .rules import rrule_from_recurrence
+from .rules import instance_id, rrule_from_recurrence
 
 type FamilyOSConfigEntry = ConfigEntry[FamilyOSCoordinator]
 
@@ -77,6 +80,7 @@ class FamilyData:
     shopping_items: dict[str, list[ShoppingItem]] = field(default_factory=dict)
     tasks: list[Task] = field(default_factory=list)
     chores: list[Chore] = field(default_factory=list)
+    drafts: list[DraftSummary] = field(default_factory=list)
 
 
 class FamilyOSCoordinator(DataUpdateCoordinator[FamilyData]):
@@ -95,6 +99,7 @@ class FamilyOSCoordinator(DataUpdateCoordinator[FamilyData]):
         self.client = client
         self._cursor: int | None = None
         self._rrules: dict[str, str | None] = {}
+        self._drafts_refused: frozenset[str] | None = None
 
     # --- refreshing ---------------------------------------------------------------------------------------
 
@@ -119,6 +124,11 @@ class FamilyOSCoordinator(DataUpdateCoordinator[FamilyData]):
             for feature, operation in _FEATURE_OPERATIONS.items()
             if discovery.can(operation) and discovery.enabled(operation.split(".")[0])
         )
+        # FamilyOS does not list reading the suggestions among a key's operations, so it is tried, and not tried
+        # again until what the key may do changes.
+        operations = frozenset(operation.name for operation in discovery.operations)
+        if self._drafts_refused != operations:
+            features |= {FEATURE_DRAFTS}
         previous = self.data
 
         stale: set[str] = set()
@@ -134,6 +144,10 @@ class FamilyOSCoordinator(DataUpdateCoordinator[FamilyData]):
                 self._cursor = (await self.client.changes()).cursor
                 touched = {"calendar", "lists", "chores"}
             stale = {feature for feature in features if _FEATURE_EXTENSIONS.get(feature) in touched}
+            # FamilyOS' change log does not tell of suggestions to an app, and a suggestion also ends by itself
+            # (a day passes, its subject is gone), so they are asked for at every poll. The answer is an ETag
+            # read: a 304 when nothing moved.
+            stale |= {FEATURE_DRAFTS} & features
             if today != previous.today:
                 # What is due today, what is overdue and what the calendar shows move with the date.
                 stale |= {FEATURE_CALENDAR, FEATURE_CHORES} & features
@@ -150,6 +164,7 @@ class FamilyOSCoordinator(DataUpdateCoordinator[FamilyData]):
             shopping_items=previous.shopping_items if previous else {},
             tasks=previous.tasks if previous else [],
             chores=previous.chores if previous else [],
+            drafts=previous.drafts if previous else [],
         )
         # What went away is forgotten, so a switched-off feature shows nothing stale when it comes back.
         if FEATURE_CALENDAR not in features:
@@ -160,6 +175,8 @@ class FamilyOSCoordinator(DataUpdateCoordinator[FamilyData]):
             data.tasks = []
         if FEATURE_CHORES not in features:
             data.chores = []
+        if FEATURE_DRAFTS not in features:
+            data.drafts = []
 
         if FEATURE_CALENDAR in stale:
             data.occurrences = [
@@ -175,6 +192,15 @@ class FamilyOSCoordinator(DataUpdateCoordinator[FamilyData]):
             data.tasks = [task async for task in self.client.iter_tasks()]
         if FEATURE_CHORES in stale:
             data.chores = [chore async for chore in self.client.iter_chores()]
+        if FEATURE_DRAFTS in stale:
+            try:
+                data.drafts = [draft async for draft in self.client.iter_drafts("waiting")]
+            except ForbiddenError, NotFoundError:
+                # The role may not propose, so it may not read the suggestions either (or this FamilyOS is
+                # too old to list them).
+                data.drafts = []
+                data.features = features - {FEATURE_DRAFTS}
+                self._drafts_refused = operations
         return data
 
     async def _shopping_items(self, list_id: str) -> list[ShoppingItem]:
@@ -217,6 +243,18 @@ class FamilyOSCoordinator(DataUpdateCoordinator[FamilyData]):
             )
         return self._rrules[event_id]
 
+    def moved_event_id(self, series_id: str, recurrence_id: str) -> str | None:
+        """The FamilyOS event a date moved out of a series became, if it is among the dates read.
+
+        Home Assistant names such a date by its series and its original moment; in FamilyOS it is an event of
+        its own and is changed as one.
+        """
+        known = self.data.occurrences if self.data else []
+        return next(
+            (o.event_id for o in known if o.series_id == series_id and instance_id(o, self.time_zone) == recurrence_id),
+            None,
+        )
+
     # --- writing ------------------------------------------------------------------------------------------
 
     async def async_write[T](self, answer: Awaitable[Applied[T] | Drafted], subject: str) -> Applied[T] | Drafted:
@@ -248,8 +286,8 @@ class FamilyOSCoordinator(DataUpdateCoordinator[FamilyData]):
             ) from err
         if isinstance(outcome, Drafted):
             await self._async_tell_waiting(outcome, subject)
-        else:
-            await self.async_refresh()
+        # A suggestion changes nothing here, but it is counted among the ones that wait.
+        await self.async_refresh()
         return outcome
 
     async def _async_tell_waiting(self, drafted: Drafted, subject: str) -> None:

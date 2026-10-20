@@ -1,4 +1,4 @@
-"""The services: post_note and complete_chore."""
+"""The services: post_note, edit_note, remove_note and complete_chore."""
 
 import datetime as dt
 from unittest.mock import AsyncMock, MagicMock
@@ -29,9 +29,64 @@ async def test_post_note_waiting_for_approval(hass: HomeAssistant, entry: MockCo
         DOMAIN, "post_note", {"text": "Back at six"}, blocking=True, return_response=True
     )
     assert answer == {"status": "drafted", "draft_id": "draft_5"}
+    # The suggestion is counted at once, not at the next poll.
+    assert client.iter_drafts.calls == 2
     assert hass.data["persistent_notification"]["familyos_draft_draft_5"]["message"] == (
         "Waiting for approval in FamilyOS: Back at six"
     )
+
+
+async def test_edit_note(hass: HomeAssistant, entry: MockConfigEntry, client: MagicMock) -> None:
+    answer = await hass.services.async_call(
+        DOMAIN,
+        "edit_note",
+        {"note": "board_note_1", "text": "Back at seven", "ends_on": "2026-10-25"},
+        blocking=True,
+        return_response=True,
+    )
+    client.patch_note.assert_awaited_once_with("board_note_1", text="Back at seven", ends_on=dt.date(2026, 10, 25))
+    assert answer == {"status": "applied", "id": "board_note_1"}
+
+
+async def test_edit_note_paper_only_and_waiting_for_approval(
+    hass: HomeAssistant, entry: MockConfigEntry, client: MagicMock
+) -> None:
+    client.patch_note = AsyncMock(return_value=drafted("draft_6"))
+    answer = await hass.services.async_call(
+        DOMAIN, "edit_note", {"note": "board_note_1", "paper": "note-2"}, blocking=True, return_response=True
+    )
+    client.patch_note.assert_awaited_once_with("board_note_1", paper="note-2")
+    assert answer == {"status": "drafted", "draft_id": "draft_6"}
+    assert hass.data["persistent_notification"]["familyos_draft_draft_6"]["message"] == (
+        "Waiting for approval in FamilyOS: board_note_1"
+    )
+
+
+async def test_edit_note_needs_something_to_change(
+    hass: HomeAssistant, entry: MockConfigEntry, client: MagicMock
+) -> None:
+    with pytest.raises(ServiceValidationError, match="Say what to change"):
+        await hass.services.async_call(DOMAIN, "edit_note", {"note": "board_note_1"}, blocking=True)
+    client.patch_note.assert_not_awaited()
+
+
+async def test_remove_note(hass: HomeAssistant, entry: MockConfigEntry, client: MagicMock) -> None:
+    answer = await hass.services.async_call(
+        DOMAIN, "remove_note", {"note": "board_note_1"}, blocking=True, return_response=True
+    )
+    client.delete_note.assert_awaited_once_with("board_note_1")
+    assert answer == {"status": "applied", "id": "board_note_1"}
+
+
+async def test_note_services_are_refused_without_the_board(hass: HomeAssistant, client: MagicMock) -> None:
+    client.discover = AsyncMock(return_value=discovery(off=("board",)))
+    config = make_entry()
+    config.add_to_hass(hass)
+    await hass.config_entries.async_setup(config.entry_id)
+    await hass.async_block_till_done()
+    for service, data in (("edit_note", {"note": "n", "text": "x"}), ("remove_note", {"note": "n"})):
+        with pytest.raises(ServiceValidationError, match="switched off"):
+            await hass.services.async_call(DOMAIN, service, data, blocking=True)
 
 
 async def test_complete_chore_by_title_for_a_person(

@@ -11,7 +11,7 @@ from homeassistant.exceptions import HomeAssistantError
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.typing import ClientSessionGenerator, WebSocketGenerator
 
-from .common import drafted, event, occurrence
+from .common import changes, drafted, event, occurrence
 
 CALENDAR = "calendar.familyos_calendar"
 
@@ -302,3 +302,83 @@ async def test_write_errors_are_told(hass: HomeAssistant, entry: MockConfigEntry
             },
             blocking=True,
         )
+
+
+# 17:00 on the 21st in Amsterdam, in epoch milliseconds: when the moved date was first due.
+MOVED_KEY = "2026-10-21T17:00:00+02:00"
+MOVED_MS = "1792594800000"
+
+
+def _moved_date(client: MagicMock) -> None:
+    """Swimming on the 21st was moved to 18:00 and is an event of its own, cal_event_9."""
+    client.iter_occurrences.items.append(
+        occurrence(
+            "Swimming",
+            "2026-10-21T18:00:00+02:00",
+            "2026-10-21T19:00:00+02:00",
+            event_id="cal_event_9",
+            # FamilyOS names a moved date by its new moment; the one it was due is the key.
+            recurrence_id="2026-10-21T18:00:00+02:00",
+            recurrence_key=MOVED_MS,
+            series_id="cal_event_2",
+        )
+    )
+
+
+async def test_a_moved_date_shows_as_an_instance_of_its_series(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator, entry: MockConfigEntry, client: MagicMock
+) -> None:
+    _moved_date(client)
+    client.get_event = AsyncMock(return_value=event(recurrence={"freq": "daily", "interval": 1}))
+    found = await _events(hass_client, "2026-10-21T00:00:00Z", "2026-10-22T00:00:00Z")
+    moved = next(e for e in found if e["start"] == {"dateTime": "2026-10-21T18:00:00+02:00"})
+    assert moved["uid"] == "cal_event_2"
+    assert moved["recurrence_id"] == MOVED_KEY
+    assert moved["rrule"] == "FREQ=DAILY"
+    # The rule is the series', read once.
+    client.get_event.assert_awaited_once_with("cal_event_2")
+
+
+async def test_a_moved_date_is_changed_as_the_event_it_is_in_family_os(
+    hass: HomeAssistant, entry: MockConfigEntry, client: MagicMock, hass_ws_client: WebSocketGenerator
+) -> None:
+    _moved_date(client)
+    client.changes = AsyncMock(return_value=changes(("calendar", "cal_event_9"), cursor=2))
+    await entry.runtime_data.async_refresh()
+    client.get_event = AsyncMock(return_value=event(id="cal_event_9", version=4, date="2026-10-21"))
+    ws = await hass_ws_client(hass)
+    answer = await _update(
+        ws,
+        "cal_event_2",
+        {"summary": "Swimming (late)", "dtstart": "2026-10-21 18:30:00", "dtend": "2026-10-21 19:30:00"},
+        recurrence_id=MOVED_KEY,
+        recurrence_range="",
+    )
+    assert answer["success"]
+    client.get_event.assert_awaited_with("cal_event_9")
+    args, kwargs = client.patch_event.await_args
+    assert args == ("cal_event_9",)
+    assert kwargs["occurrence"] is None
+    assert kwargs["if_match"] == 4
+    assert kwargs["title"] == "Swimming (late)"
+    assert kwargs["start_time"] == dt.time(18, 30)
+
+
+async def test_a_moved_date_is_deleted_as_the_event_it_is_in_family_os(
+    hass: HomeAssistant, entry: MockConfigEntry, client: MagicMock, hass_ws_client: WebSocketGenerator
+) -> None:
+    _moved_date(client)
+    client.changes = AsyncMock(return_value=changes(("calendar", "cal_event_9"), cursor=2))
+    await entry.runtime_data.async_refresh()
+    ws = await hass_ws_client(hass)
+    await ws.send_json_auto_id(
+        {
+            "type": "calendar/event/delete",
+            "entity_id": CALENDAR,
+            "uid": "cal_event_2",
+            "recurrence_id": MOVED_KEY,
+            "recurrence_range": "",
+        }
+    )
+    assert (await ws.receive_json())["success"]
+    client.delete_event.assert_awaited_with("cal_event_9", occurrence=None)

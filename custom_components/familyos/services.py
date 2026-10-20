@@ -1,4 +1,4 @@
-"""The services: put a note on the board, and complete a chore."""
+"""The services: put a note on the board, change or remove it, and complete a chore."""
 
 import datetime as dt
 from typing import Any
@@ -22,6 +22,16 @@ POST_NOTE_SCHEMA = vol.Schema(
         vol.Optional(ATTR_ENTRY): cv.string,
     }
 )
+EDIT_NOTE_SCHEMA = vol.Schema(
+    {
+        vol.Required("note"): cv.string,
+        vol.Optional("text"): vol.All(cv.string, vol.Length(min=1, max=2000)),
+        vol.Optional("paper"): cv.string,
+        vol.Optional("ends_on"): cv.date,
+        vol.Optional(ATTR_ENTRY): cv.string,
+    }
+)
+REMOVE_NOTE_SCHEMA = vol.Schema({vol.Required("note"): cv.string, vol.Optional(ATTR_ENTRY): cv.string})
 COMPLETE_CHORE_SCHEMA = vol.Schema(
     {
         vol.Required("chore"): cv.string,
@@ -63,6 +73,29 @@ async def _post_note(call: ServiceCall) -> dict[str, Any]:
     return _answer(outcome, outcome.result.id if isinstance(outcome, Applied) else None)
 
 
+async def _edit_note(call: ServiceCall) -> dict[str, Any]:
+    coordinator = _coordinator(call.hass, call)
+    if not coordinator.has(FEATURE_BOARD):
+        raise ServiceValidationError(translation_domain=DOMAIN, translation_key="feature_unavailable")
+    note: str = call.data["note"]
+    changes = {name: call.data[name] for name in ("text", "paper", "ends_on") if name in call.data}
+    if not changes:
+        raise ServiceValidationError(translation_domain=DOMAIN, translation_key="nothing_to_change")
+    outcome = await coordinator.async_write(
+        coordinator.client.patch_note(note, **changes), subject=call.data.get("text", note)
+    )
+    return _answer(outcome, note)
+
+
+async def _remove_note(call: ServiceCall) -> dict[str, Any]:
+    coordinator = _coordinator(call.hass, call)
+    if not coordinator.has(FEATURE_BOARD):
+        raise ServiceValidationError(translation_domain=DOMAIN, translation_key="feature_unavailable")
+    note: str = call.data["note"]
+    outcome = await coordinator.async_write(coordinator.client.delete_note(note), subject=note)
+    return _answer(outcome, note)
+
+
 async def _complete_chore(call: ServiceCall) -> dict[str, Any]:
     coordinator = _coordinator(call.hass, call)
     if not coordinator.has(FEATURE_CHORES) or coordinator.data is None:
@@ -97,6 +130,12 @@ def async_setup_services(hass: HomeAssistant) -> None:
     """Register the services (once, for all connected FamilyOS)."""
     hass.services.async_register(
         DOMAIN, "post_note", _post_note, schema=POST_NOTE_SCHEMA, supports_response=SupportsResponse.OPTIONAL
+    )
+    hass.services.async_register(
+        DOMAIN, "edit_note", _edit_note, schema=EDIT_NOTE_SCHEMA, supports_response=SupportsResponse.OPTIONAL
+    )
+    hass.services.async_register(
+        DOMAIN, "remove_note", _remove_note, schema=REMOVE_NOTE_SCHEMA, supports_response=SupportsResponse.OPTIONAL
     )
     hass.services.async_register(
         DOMAIN,

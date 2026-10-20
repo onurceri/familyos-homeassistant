@@ -14,7 +14,7 @@ from homeassistant.util import dt as dt_util
 from .const import DOMAIN, FEATURE_CALENDAR
 from .coordinator import FamilyOSConfigEntry, FamilyOSCoordinator
 from .entity import FamilyOSEntity
-from .rules import recurrence_from_rrule, same_repeat
+from .rules import instance_id, recurrence_from_rrule, same_repeat
 
 PARALLEL_UPDATES = 0
 
@@ -37,6 +37,7 @@ def to_calendar_event(occurrence: Occurrence, zone: ZoneInfo, rrule: str | None 
 
     FamilyOS ends an all-day event on its last day; Home Assistant ends it the day after.
     """
+    moved = occurrence.series_id is not None
     start = _plain_moment(occurrence.start, zone)
     end = _plain_moment(occurrence.end, zone)
     if occurrence.all_day and isinstance(end, dt.date) and not isinstance(end, dt.datetime):
@@ -47,10 +48,10 @@ def to_calendar_event(occurrence: Occurrence, zone: ZoneInfo, rrule: str | None 
         summary=occurrence.title,
         description=occurrence.notes,
         location=occurrence.location,
-        uid=occurrence.event_id,
-        # Only a date of a repeating series is named by its place in the series. A date that was moved is an
-        # event of its own in FamilyOS and is changed as one.
-        recurrence_id=occurrence.recurrence_id.isoformat() if occurrence.recurring else None,
+        # A date moved out of a series is an event of its own in FamilyOS, but here it stays that series'
+        # instance, named by the moment it was first due.
+        uid=occurrence.series_id if moved else occurrence.event_id,
+        recurrence_id=instance_id(occurrence, zone) if occurrence.recurring or moved else None,
         rrule=rrule,
     )
 
@@ -91,13 +92,23 @@ class FamilyCalendar(FamilyOSEntity, CalendarEntity):
         last = (end_date.astimezone(zone) - dt.timedelta(microseconds=1)).date()
         events: list[CalendarEvent] = []
         async for occurrence in self.coordinator.client.iter_occurrences(first, max(first, last), limit=500):
-            rrule = await self.coordinator.async_rrule(occurrence.event_id) if occurrence.recurring else None
+            rrule = None
+            if occurrence.series_id:
+                rrule = await self.coordinator.async_rrule(occurrence.series_id)
+            elif occurrence.recurring:
+                rrule = await self.coordinator.async_rrule(occurrence.event_id)
             event = to_calendar_event(occurrence, zone, rrule)
             if event.end_datetime_local > start_date and event.start_datetime_local < end_date:
                 events.append(event)
         return events
 
     # --- writing ------------------------------------------------------------------------------------------
+
+    def _moved(self, uid: str, recurrence_id: str | None) -> tuple[str, str | None]:
+        """A date moved out of a series is changed as the event of its own it is in FamilyOS."""
+        if recurrence_id is not None and (event_id := self.coordinator.moved_event_id(uid, recurrence_id)):
+            return event_id, None
+        return uid, recurrence_id
 
     def _when(self, start: dt.datetime | dt.date, end: dt.datetime | dt.date | None) -> dict[str, Any]:
         """FamilyOS' fields for a start and an end (an all-day end is the day after its last day)."""
@@ -153,6 +164,7 @@ class FamilyCalendar(FamilyOSEntity, CalendarEntity):
         """Change an event, or one date of a repeating one."""
         if recurrence_range == _THIS_AND_FUTURE:
             raise ServiceValidationError(translation_domain=DOMAIN, translation_key="following_unsupported")
+        uid, recurrence_id = self._moved(uid, recurrence_id)
         client = self.coordinator.client
         current = await client.get_event(uid)
         if event.get("rrule") and not same_repeat(event["rrule"], current.recurrence):
@@ -191,6 +203,7 @@ class FamilyCalendar(FamilyOSEntity, CalendarEntity):
         """Delete an event, or one date of a repeating one."""
         if recurrence_range == _THIS_AND_FUTURE:
             raise ServiceValidationError(translation_domain=DOMAIN, translation_key="following_unsupported")
+        uid, recurrence_id = self._moved(uid, recurrence_id)
         known = self.coordinator.data.occurrences if self.coordinator.data else []
         subject = next((o.title for o in known if o.event_id == uid), uid)
         await self.coordinator.async_write(

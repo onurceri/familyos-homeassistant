@@ -4,16 +4,31 @@ import datetime as dt
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from familyos import AuthenticationError, ConnectionError, CursorExpired, FamilyOSError, RateLimited
+from familyos import (
+    AuthenticationError,
+    ConnectionError,
+    CursorExpired,
+    FamilyOSError,
+    ForbiddenError,
+    NotFoundError,
+    RateLimited,
+)
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import UpdateFailed
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
-from .common import changes, discovery, make_entry
+from .common import ALL_OPERATIONS, Stream, changes, discovery, draft_summary, make_entry
 
-READS = ("iter_occurrences", "iter_shopping_lists", "iter_shopping_items", "iter_tasks", "iter_chores")
+READS = (
+    "iter_occurrences",
+    "iter_shopping_lists",
+    "iter_shopping_items",
+    "iter_tasks",
+    "iter_chores",
+    "iter_drafts",
+)
 
 
 def _calls(client: MagicMock) -> dict[str, int]:
@@ -34,15 +49,16 @@ async def test_first_refresh_reads_everything_once(
     data = entry.runtime_data.data
     assert [o.title for o in data.occurrences] == ["Dentist", "Swimming", "Trip"]
     assert data.today == dt.date(2026, 10, 20)
-    assert data.features == {"calendar", "shopping", "tasks", "chores", "board"}
+    assert data.features == {"calendar", "shopping", "tasks", "chores", "board", "drafts"}
 
 
-async def test_nothing_changed_reads_nothing(
+async def test_nothing_changed_reads_only_the_suggestions(
     hass: HomeAssistant, freezer: FrozenDateTimeFactory, entry: MockConfigEntry, client: MagicMock
 ) -> None:
     await _poll(hass, freezer, entry)
     await _poll(hass, freezer, entry)
-    assert _calls(client) == dict.fromkeys(READS, 1)
+    # The change log does not tell an app of suggestions, so they are asked for at every poll.
+    assert _calls(client) == {**dict.fromkeys(READS, 1), "iter_drafts": 3}
     assert client.changes.await_args_list[-1].args == (1,)
 
 
@@ -187,3 +203,48 @@ async def test_rrule_is_kept_until_the_event_changes(entry: MockConfigEntry, cli
     assert await coordinator.async_rrule("cal_event_10") is None
     with pytest.raises(UpdateFailed):
         raise UpdateFailed("kept for the import")
+
+
+async def test_a_suggestion_that_comes_and_goes_is_followed_at_every_poll(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, entry: MockConfigEntry, client: MagicMock
+) -> None:
+    assert entry.runtime_data.data.drafts == []
+    client.iter_drafts.items[:] = [draft_summary()]
+    await _poll(hass, freezer, entry)
+    assert [d.id for d in entry.runtime_data.data.drafts] == ["draft_1"]
+    client.iter_drafts.items[:] = []
+    await _poll(hass, freezer, entry)
+    assert entry.runtime_data.data.drafts == []
+
+
+async def test_a_role_that_may_not_read_suggestions_is_not_asked_again_until_it_changes(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, entry: MockConfigEntry, client: MagicMock
+) -> None:
+    refused = MagicMock(side_effect=ForbiddenError("This role may not read suggestions"))
+    client.iter_drafts = refused
+    await _poll(hass, freezer, entry)
+    assert refused.call_count == 1
+    assert hass.states.get("sensor.familyos_waiting_for_approval").state == "unavailable"
+    assert entry.runtime_data.data.drafts == []
+    assert "drafts" not in entry.runtime_data.data.features
+    # The calendar and the rest go on.
+    assert hass.states.get("calendar.familyos_calendar").state != "unavailable"
+
+    # Nothing about the key changed: not asked again.
+    await _poll(hass, freezer, entry)
+    assert refused.call_count == 1
+
+    # The key's role changed (a different set of operations): asked again, and now it answers.
+    client.iter_drafts = Stream([draft_summary()])
+    client.discover = AsyncMock(return_value=discovery(operations=ALL_OPERATIONS[:-1]))
+    await _poll(hass, freezer, entry)
+    assert hass.states.get("sensor.familyos_waiting_for_approval").state == "1"
+
+
+async def test_an_older_family_os_has_no_list_of_suggestions(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, entry: MockConfigEntry, client: MagicMock
+) -> None:
+    client.iter_drafts = MagicMock(side_effect=NotFoundError("no such route"))
+    await _poll(hass, freezer, entry)
+    assert hass.states.get("sensor.familyos_waiting_for_approval").state == "unavailable"
+    assert hass.states.get("todo.familyos_tasks").state == "1"

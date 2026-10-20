@@ -1,8 +1,9 @@
 """Reading and writing repeat rules (RFC 5545 text) the way FamilyOS repeats things."""
 
 import datetime as dt
+from zoneinfo import ZoneInfo
 
-from familyos import Recurrence
+from familyos import Occurrence, Recurrence
 
 _FREQUENCIES = {"DAILY": "daily", "WEEKLY": "weekly", "MONTHLY": "monthly"}
 _WEEKDAYS = {"MO", "TU", "WE", "TH", "FR", "SA", "SU"}
@@ -65,3 +66,20 @@ def rrule_from_recurrence(recurrence: Recurrence) -> str:
     if recurrence.until is not None:
         parts.append("UNTIL=" + recurrence.until.strftime("%Y%m%d"))
     return ";".join(parts)
+
+
+def instance_id(occurrence: Occurrence, zone: ZoneInfo) -> str:
+    """The name of a date within its series: the moment (or day) it was first due.
+
+    A date moved out of a series reports its new moment as ``recurrence_id``; the one it was due is its
+    ``recurrence_key`` (epoch milliseconds, or a day for an all-day event).
+    """
+    key = occurrence.recurrence_key
+    if occurrence.series_id and key:
+        if key.isdecimal():
+            return dt.datetime.fromtimestamp(int(key) / 1000, zone).isoformat()
+        try:
+            return dt.date.fromisoformat(key).isoformat()
+        except ValueError:
+            pass  # a key of another kind (a subscription's): the date keeps the moment it shows
+    return occurrence.recurrence_id.isoformat()

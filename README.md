@@ -4,9 +4,9 @@ A Home Assistant integration for [FamilyOS](https://github.com/onurceri/family-o
 It brings the family's calendar, shopping lists, tasks and chores into Home Assistant, and lets Home Assistant add to
 them. It talks to FamilyOS with an app key through FamilyOS's public API, so it only does what the key's role allows.
 
-- Needs FamilyOS **0.3.1 or newer** (0.3.0 could lose a repeating event's skipped dates when Home Assistant edits it) and Home Assistant **2026.10 or newer**.
+- Needs FamilyOS **0.3.1 or newer** (0.3.0 could lose a repeating event's skipped dates when Home Assistant edits it) and Home Assistant **2026.10 or newer**. The *Waiting for approval* sensor and the note services `edit_note` and `remove_note` need a FamilyOS newer than 0.3.2 (the first with the API's list of suggestions); on an older one they stay unavailable or are refused.
 - Polls FamilyOS (local polling, every 60 seconds by default). Asking is cheap: FamilyOS says what changed, and the
-  integration reads only that.
+  integration reads only that (plus the waiting suggestions, which the change log does not report to an app, as a conditional read).
 
 ## Install
 
@@ -50,6 +50,7 @@ One device, **FamilyOS**, with:
 | `todo.familyos_tasks` | The family's tasks. Add, rename, set a due date (or date and time) and notes, complete, reopen and delete. |
 | `sensor.familyos_chores_due_today` | How many chores are due today. The titles are in the `chores` attribute. |
 | `sensor.familyos_chores_overdue` | How many chores are late, with their titles in `chores`. |
+| `sensor.familyos_waiting_for_approval` | How many suggestions wait for a person to approve them in FamilyOS (the app's own, or those of the person it acts for). What each is about is in the `suggestions` attribute. Unavailable when the app's role may not propose. |
 
 An entity becomes **unavailable** (not an error) when FamilyOS cannot be reached, when its feature is switched off in
 FamilyOS (**Settings, Features**), or when the app's role may not use it.
@@ -60,7 +61,11 @@ FamilyOS (**Settings, Features**), or when the app's role may not use it.
 - `familyos.complete_chore`: marks a chore done. Fields: `chore` (its title or id), `due_date` (default: the date it
   is due), `done_by` (the id of the member who did it).
 
-Both can say which FamilyOS to use with `config_entry_id` when you have more than one, and both return
+- `familyos.edit_note`: changes a note on the board. Fields: `note` (its id, which `post_note` answers with), and any of
+  `text`, `paper`, `ends_on`. Only the note's author, or someone who manages the board, may; an app is nobody, so use *Act for* (below) and notes it posts are that person's to change.
+- `familyos.remove_note`: takes a note off the board. Fields: `note`. Same rule.
+
+All can say which FamilyOS to use with `config_entry_id` when you have more than one, and all return
 `{status: applied | drafted, ...}` when called with a response.
 
 An app is nobody, so FamilyOS needs to know whose chore it was: give `done_by`, or set **Act for** (below).
@@ -90,9 +95,11 @@ It becomes a suggestion for a person to approve. Home Assistant then:
 - Changing **how an event repeats**, and changing or deleting **"this and following"** events, are refused from Home
   Assistant with a message. Change those in FamilyOS. Adding a repeating event (daily, weekly on chosen days, monthly,
   with an interval and an end date) works; other rules (`COUNT`, yearly, ...) are refused.
-- A date of a repeating event that was moved in FamilyOS is an event of its own there, and shows and changes that way.
+- A date of a repeating event that was moved in FamilyOS is an event of its own there. Home Assistant shows it as that
+  series' instance (same `uid`, `recurrence_id` the moment it was first due), and changing or deleting it changes or
+  deletes that moved event in FamilyOS. Only dates in the window the integration reads (about 60 days ahead) are known
+  as moved.
 - Shopping quantities and categories are not shown or set; an item is its title.
-- There is no sensor for waiting suggestions: FamilyOS's API lets an app follow its own suggestion but not list them.
 
 ## Privacy and safety
 

@@ -78,6 +78,10 @@
       "chores_overdue": {
         "name": "Chores overdue",
         "unit_of_measurement": "chores"
+      },
+      "waiting_for_approval": {
+        "name": "Waiting for approval",
+        "unit_of_measurement": "suggestions"
       }
     }
   },
@@ -123,6 +127,9 @@
     },
     "feature_unavailable": {
       "message": "FamilyOS does not offer this to the app: it is switched off or the app's role may not use it."
+    },
+    "nothing_to_change": {
+      "message": "Say what to change: text, paper or ends_on."
     }
   },
   "services": {
@@ -159,6 +166,46 @@
         "done_by": {
           "name": "Done by",
           "description": "The id of the member who did it. An app is nobody, so say who when it matters."
+        },
+        "config_entry_id": {
+          "name": "FamilyOS",
+          "description": "Which FamilyOS to use. Needed only when more than one is connected."
+        }
+      }
+    },
+    "edit_note": {
+      "name": "Change a note on the board",
+      "description": "Changes a note on the family board in FamilyOS. Only its author, or someone who manages the board, may.",
+      "fields": {
+        "note": {
+          "name": "Note",
+          "description": "The id of the note. Posting a note answers with it."
+        },
+        "text": {
+          "name": "Text",
+          "description": "What the note should say."
+        },
+        "paper": {
+          "name": "Paper",
+          "description": "The paper the note is written on."
+        },
+        "ends_on": {
+          "name": "Ends on",
+          "description": "The last day the note stays on the board."
+        },
+        "config_entry_id": {
+          "name": "FamilyOS",
+          "description": "Which FamilyOS to use. Needed only when more than one is connected."
+        }
+      }
+    },
+    "remove_note": {
+      "name": "Remove a note from the board",
+      "description": "Takes a note off the family board in FamilyOS. Only its author, or someone who manages the board, may.",
+      "fields": {
+        "note": {
+          "name": "Note",
+          "description": "The id of the note. Posting a note answers with it."
         },
         "config_entry_id": {
           "name": "FamilyOS",
