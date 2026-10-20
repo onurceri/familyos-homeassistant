@@ -9,7 +9,7 @@
           "api_key": "API anahtarı"
         },
         "data_description": {
-          "url": "FamilyOS adresiniz, örneğin http://192.168.1.20:3000 veya https://aile.example.com.",
+          "url": "FamilyOS adresiniz, örneğin {local_example} veya {remote_example}.",
           "api_key": "FamilyOS'tan aldığınız uygulama anahtarı. famos_ ile başlar."
         }
       },

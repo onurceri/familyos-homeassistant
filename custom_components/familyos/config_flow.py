@@ -106,6 +106,10 @@ class FamilyOSConfigFlow(ConfigFlow, domain=DOMAIN):
                 }
             ),
             errors=errors,
+            description_placeholders={
+                "local_example": "http://192.168.1.20:3000",
+                "remote_example": "https://family.example.com",
+            },
         )
 
     async def async_step_reauth(self, entry_data: Mapping[str, Any]) -> ConfigFlowResult:
