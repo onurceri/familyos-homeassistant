@@ -4,7 +4,7 @@ A Home Assistant integration for [FamilyOS](https://github.com/onurceri/family-o
 It brings the family's calendar, shopping lists, tasks and chores into Home Assistant, and lets Home Assistant add to
 them. It talks to FamilyOS with an app key through FamilyOS's public API, so it only does what the key's role allows.
 
-- Needs FamilyOS **0.3.0 or newer** and Home Assistant **2026.10 or newer**.
+- Needs FamilyOS **0.3.1 or newer** (0.3.0 could lose a repeating event's skipped dates when Home Assistant edits it) and Home Assistant **2026.10 or newer**.
 - Polls FamilyOS (local polling, every 60 seconds by default). Asking is cheap: FamilyOS says what changed, and the
   integration reads only that.
 
