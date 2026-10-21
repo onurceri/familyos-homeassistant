@@ -43,7 +43,8 @@ address); a key for another one is refused.
 
 If FamilyOS refuses the key (revoked or expired), Home Assistant asks for a new one: **Repair** on the integration, then
 enter the new key. If the app is only paused in FamilyOS, Home Assistant does not ask for a key: the entities show as
-unavailable (one warning in the log) and come back by themselves after the app is resumed.
+unavailable (one warning in the log) and come back by themselves after the app is resumed. This needs FamilyOS 0.4.1 or
+newer; an older one does not say that the app is paused, so Home Assistant asks for a key there.
 
 ## What you get
 
