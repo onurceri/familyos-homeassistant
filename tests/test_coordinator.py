@@ -153,6 +153,46 @@ async def test_key_refused_starts_reauth(
     assert [f["context"]["source"] for f in flows] == ["reauth"]
 
 
+async def test_a_paused_app_is_unavailable_without_reauth_and_comes_back(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    entry: MockConfigEntry,
+    client: MagicMock,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    good = client.discover
+    client.discover = AsyncMock(
+        side_effect=AuthenticationError("This app is paused in FamilyOS", status=401, reason="paused")
+    )
+    await _poll(hass, freezer, entry)
+    await _poll(hass, freezer, entry)
+    assert not entry.runtime_data.last_update_success
+    assert hass.states.get("calendar.familyos_calendar").state == "unavailable"
+    assert entry.state is ConfigEntryState.LOADED
+    assert hass.config_entries.flow.async_progress_by_handler("familyos") == []
+    ours = [r for r in caplog.records if r.name == "custom_components.familyos" and r.levelname == "WARNING"]
+    assert [r.getMessage() for r in ours if "paused" in r.getMessage()] == [
+        "The app is paused in FamilyOS; the entities are unavailable until it is resumed"
+    ]
+
+    client.discover = good
+    await _poll(hass, freezer, entry)
+    assert entry.runtime_data.last_update_success
+    assert hass.states.get("calendar.familyos_calendar").state != "unavailable"
+
+
+async def test_a_refusal_without_a_reason_still_starts_reauth(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, entry: MockConfigEntry, client: MagicMock
+) -> None:
+    # An older client carries no reason at all; one that does says nothing for a revoked key.
+    err = AuthenticationError("no", status=401)
+    del err.reason
+    client.discover = AsyncMock(side_effect=err)
+    await _poll(hass, freezer, entry)
+    flows = hass.config_entries.flow.async_progress_by_handler("familyos")
+    assert [f["context"]["source"] for f in flows] == ["reauth"]
+
+
 async def test_first_refresh_failures(hass: HomeAssistant, client: MagicMock) -> None:
     client.discover = AsyncMock(side_effect=ConnectionError("down"))
     unreachable = make_entry()

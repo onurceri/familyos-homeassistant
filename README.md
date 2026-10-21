@@ -36,8 +36,14 @@ Copy the `custom_components/familyos` folder into your Home Assistant `config/cu
    FamilyOS address (for example `http://192.168.1.20:3000` or `https://family.example.com`) and the key.
    Use an IP address or a real host name: `.local` names do not always resolve from Home Assistant's container.
 
-If FamilyOS later refuses the key (revoked, expired, app paused), Home Assistant asks for a new one: **Repair** on the
-integration, then enter the new key.
+To change the key (a rotation, or a key you think leaked): in FamilyOS add a new key to the app, then in Home Assistant
+open **Settings, Devices & services, FamilyOS**, the **⋯** menu, **Reconfigure**, and enter the new key. The old key can
+be revoked after that, and nothing goes unavailable in between. The key must be for the same FamilyOS (the same
+address); a key for another one is refused.
+
+If FamilyOS refuses the key (revoked or expired), Home Assistant asks for a new one: **Repair** on the integration, then
+enter the new key. If the app is only paused in FamilyOS, Home Assistant does not ask for a key: the entities show as
+unavailable (one warning in the log) and come back by themselves after the app is resumed.
 
 ## What you get
 

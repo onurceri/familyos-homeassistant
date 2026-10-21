@@ -70,6 +70,12 @@ _FEATURE_EXTENSIONS = {
 }
 
 
+def _is_paused(err: AuthenticationError) -> bool:
+    """Whether FamilyOS refused a valid key because its app is paused. Read defensively: older clients carry no
+    reason on this error."""
+    return getattr(err, "reason", None) == "paused"
+
+
 @dataclass
 class FamilyData:
     """What the integration knows about the family right now."""
@@ -103,13 +109,21 @@ class FamilyOSCoordinator(DataUpdateCoordinator[FamilyData]):
         self._cursor: int | None = None
         self._rrules: dict[str, str | None] = {}
         self._drafts_refused: frozenset[str] | None = None
+        self._paused = False
 
     # --- refreshing ---------------------------------------------------------------------------------------
 
     async def _async_update_data(self) -> FamilyData:
         try:
-            return await self._refresh()
+            data = await self._refresh()
         except AuthenticationError as err:
+            if _is_paused(err):
+                # The key is fine; the family paused the app. A new key would not help, and it works again after
+                # Resume, so keep asking at the normal pace.
+                if not self._paused:
+                    self._paused = True
+                    LOGGER.warning("The app is paused in FamilyOS; the entities are unavailable until it is resumed")
+                raise UpdateFailed("This app is paused in FamilyOS") from err
             raise ConfigEntryAuthFailed("FamilyOS no longer accepts the key") from err
         except RateLimited as err:
             raise UpdateFailed("FamilyOS asked us to slow down", retry_after=err.retry_after) from err
@@ -117,6 +131,10 @@ class FamilyOSCoordinator(DataUpdateCoordinator[FamilyData]):
             raise UpdateFailed(f"Cannot reach FamilyOS: {err}") from err
         except FamilyOSError as err:
             raise UpdateFailed(f"FamilyOS answered with an error: {err}") from err
+        if self._paused:
+            self._paused = False
+            LOGGER.info("The app is resumed in FamilyOS")
+        return data
 
     async def _refresh(self) -> FamilyData:
         discovery = await self.client.discover()
@@ -276,6 +294,8 @@ class FamilyOSCoordinator(DataUpdateCoordinator[FamilyData]):
         try:
             outcome = await answer
         except AuthenticationError as err:
+            if _is_paused(err):
+                raise HomeAssistantError(translation_domain=DOMAIN, translation_key="paused") from err
             self.config_entry.async_start_reauth(self.hass)
             raise HomeAssistantError(translation_domain=DOMAIN, translation_key="auth_failed") from err
         except ForbiddenError as err:

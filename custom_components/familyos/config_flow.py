@@ -139,6 +139,42 @@ class FamilyOSConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """A new key (and the address, if it moved), without waiting for the old key to be refused."""
+        entry = self._get_reconfigure_entry()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            url = normalize_url(user_input[CONF_URL])
+            key = user_input[CONF_API_KEY].strip()
+            try:
+                await _discover(self.hass, url, key)
+            except CannotConnect:
+                errors["base"] = "cannot_connect"
+            except InvalidAuth:
+                errors["base"] = "invalid_auth"
+            except Unsupported, ForbiddenError:
+                errors["base"] = "unsupported"
+            except Exception:
+                LOGGER.exception("Unexpected error while checking FamilyOS")
+                errors["base"] = "unknown"
+            else:
+                # The address is what tells one family from another, so a key for another address is for another
+                # FamilyOS and must not take over this connection's entities.
+                await self.async_set_unique_id(url)
+                self._abort_if_unique_id_mismatch(reason="wrong_family")
+                return self.async_update_reload_and_abort(entry, data_updates={CONF_URL: url, CONF_API_KEY: key})
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_URL, default=(user_input or entry.data)[CONF_URL]): str,
+                    vol.Required(CONF_API_KEY): str,
+                }
+            ),
+            errors=errors,
+            description_placeholders={"url": entry.data[CONF_URL]},
+        )
+
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: FamilyOSConfigEntry) -> OptionsFlow:

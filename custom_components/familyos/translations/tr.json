@@ -22,6 +22,18 @@
         "data_description": {
           "api_key": "FamilyOS'tan aldığınız yeni uygulama anahtarı."
         }
+      },
+      "reconfigure": {
+        "title": "FamilyOS anahtarını değiştir",
+        "description": "Bu FamilyOS'un adresini ve uygulama için yeni bir anahtarı girin (önce FamilyOS'ta yeni anahtarı ekleyin, sonra eskisini iptal edin). Şu an bağlı olunan adres: {url}.",
+        "data": {
+          "url": "URL",
+          "api_key": "API anahtarı"
+        },
+        "data_description": {
+          "url": "FamilyOS adresiniz, örneğin {local_example} veya {remote_example}.",
+          "api_key": "FamilyOS'tan aldığınız yeni uygulama anahtarı."
+        }
       }
     },
     "error": {
@@ -32,7 +44,9 @@
     },
     "abort": {
       "already_configured": "Cihaz zaten yapılandırılmış",
-      "reauth_successful": "Yeniden kimlik doğrulama başarılı"
+      "reauth_successful": "Yeniden kimlik doğrulama başarılı",
+      "wrong_family": "Bu anahtar başka bir FamilyOS'a (başka bir adres) ait. Onu bağlamak için yeni bir entegrasyon olarak ekleyin.",
+      "reconfigure_successful": "Yeniden yapılandırma başarılı oldu"
     }
   },
   "options": {
@@ -130,6 +144,9 @@
     },
     "nothing_to_change": {
       "message": "Neyin değişeceğini söyleyin: text, paper veya ends_on."
+    },
+    "paused": {
+      "message": "Bu uygulama FamilyOS'ta duraklatıldı. Orada devam ettirildikten sonra değişiklikleri yeniden çalışır; Home Assistant'ta yapılacak bir şey yok."
     }
   },
   "services": {
