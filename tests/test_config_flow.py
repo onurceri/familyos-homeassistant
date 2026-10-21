@@ -8,6 +8,7 @@ from homeassistant import config_entries
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.familyos.config_flow import normalize_url
 from custom_components.familyos.const import DOMAIN
@@ -108,6 +109,55 @@ async def test_reauth(hass: HomeAssistant, client: MagicMock) -> None:
     assert result["reason"] == "reauth_successful"
     assert entry.data["api_key"] == "famos_new"
     assert entry.data["url"] == URL
+
+
+async def _reconfigure(hass: HomeAssistant, client: MagicMock) -> tuple[MockConfigEntry, str]:
+    entry = make_entry()
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    result = await entry.start_reconfigure_flow(hass)
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "reconfigure"
+    return entry, result["flow_id"]
+
+
+async def test_reconfigure_changes_the_key(hass: HomeAssistant, client: MagicMock) -> None:
+    entry, flow = await _reconfigure(hass, client)
+
+    client.discover = AsyncMock(side_effect=AuthenticationError("no", status=401))
+    result = await hass.config_entries.flow.async_configure(flow, {"url": URL, "api_key": "famos_bad"})
+    assert result["errors"] == {"base": "invalid_auth"}
+
+    client.discover = AsyncMock(side_effect=ConnectionError("down"))
+    result = await hass.config_entries.flow.async_configure(flow, {"url": URL, "api_key": "famos_new"})
+    assert result["errors"] == {"base": "cannot_connect"}
+
+    client.discover = AsyncMock(side_effect=FamilyOSError("odd"))
+    result = await hass.config_entries.flow.async_configure(flow, {"url": URL, "api_key": "famos_new"})
+    assert result["errors"] == {"base": "unsupported"}
+
+    client.discover = AsyncMock(side_effect=RuntimeError("boom"))
+    result = await hass.config_entries.flow.async_configure(flow, {"url": URL, "api_key": "famos_new"})
+    assert result["errors"] == {"base": "unknown"}
+
+    client.discover = AsyncMock(return_value=discovery())
+    result = await hass.config_entries.flow.async_configure(flow, {"url": URL + "/", "api_key": " famos_new "})
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    assert entry.data == {"url": URL, "api_key": "famos_new"}
+    await hass.async_block_till_done()
+    assert entry.state is ConfigEntryState.LOADED
+
+
+async def test_reconfigure_refuses_another_family(hass: HomeAssistant, client: MagicMock) -> None:
+    entry, flow = await _reconfigure(hass, client)
+    result = await hass.config_entries.flow.async_configure(
+        flow, {"url": "https://other.example.com", "api_key": "famos_other"}
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "wrong_family"
+    assert entry.data == {"url": URL, "api_key": KEY}
 
 
 async def test_options(hass: HomeAssistant, client: MagicMock) -> None:

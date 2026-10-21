@@ -196,6 +196,17 @@ async def test_a_refused_key_during_a_write_starts_reauth(
     assert [f["context"]["source"] for f in flows] == ["reauth"]
 
 
+async def test_a_paused_app_during_a_write_does_not_start_reauth(
+    hass: HomeAssistant, entry: MockConfigEntry, client: MagicMock
+) -> None:
+    from familyos import AuthenticationError
+
+    client.create_note = AsyncMock(side_effect=AuthenticationError("paused", status=401, reason="paused"))
+    with pytest.raises(HomeAssistantError, match="paused in FamilyOS"):
+        await hass.services.async_call(DOMAIN, "post_note", {"text": "x"}, blocking=True)
+    assert hass.config_entries.flow.async_progress_by_handler(DOMAIN) == []
+
+
 async def test_unreachable_during_a_write(hass: HomeAssistant, entry: MockConfigEntry, client: MagicMock) -> None:
     from familyos import ConnectionError
 

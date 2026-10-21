@@ -22,6 +22,18 @@
         "data_description": {
           "api_key": "The new app key from FamilyOS."
         }
+      },
+      "reconfigure": {
+        "title": "Change the FamilyOS key",
+        "description": "Enter the address of this FamilyOS and a new key for the app (add the key in FamilyOS first, then revoke the old one). Currently connected to {url}.",
+        "data": {
+          "url": "URL",
+          "api_key": "API key"
+        },
+        "data_description": {
+          "url": "The address of your FamilyOS, for example {local_example} or {remote_example}.",
+          "api_key": "The new app key from FamilyOS."
+        }
       }
     },
     "error": {
@@ -32,7 +44,9 @@
     },
     "abort": {
       "already_configured": "Device is already configured",
-      "reauth_successful": "Re-authentication was successful"
+      "reauth_successful": "Re-authentication was successful",
+      "wrong_family": "This key belongs to a different FamilyOS (another address). To connect that one, add it as a new integration.",
+      "reconfigure_successful": "Re-configuration was successful"
     }
   },
   "options": {
@@ -130,6 +144,9 @@
     },
     "nothing_to_change": {
       "message": "Say what to change: text, paper or ends_on."
+    },
+    "paused": {
+      "message": "This app is paused in FamilyOS. Its changes will work again after it is resumed there; nothing needs to be done in Home Assistant."
     }
   },
   "services": {
